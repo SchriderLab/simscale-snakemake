@@ -1,0 +1,113 @@
+import pandas as pd
+from glob import glob
+import numpy as np
+from functools import lru_cache
+import os 
+
+configfile: "./config/config.yml"
+
+# expensive I/O function, cache it, but not too much
+@lru_cache(maxsize=5)
+def get_sim_output_files(Q):
+    samples, = glob_wildcards(f"{config['src_data_dir']}/Q{Q}/sample_{{sample}}.vcf")
+    fixation_files = [f"{config['src_data_dir']}/Q{Q}/fixation_{sample}.csv" for sample in samples]
+    fixation_prob_files = [f"{config['src_data_dir']}/Q{Q}/fixation_prob_{sample}.csv" for sample in samples]
+    sample_files = [f"{config['src_data_dir']}/Q{Q}/sample_{sample}.vcf" for sample in samples]
+
+    return [fixation_files, fixation_prob_files, sample_files]
+
+@lru_cache(maxsize=1)
+def get_qs():
+    # Find all directories in the src_data_dir
+    directories = os.listdir(config['src_data_dir'])
+    # The directories are names Q[q_value] so we need to extract the q_value
+    qs = [int(dir[1:]) for dir in directories]
+    return qs
+
+
+def get_expected_output_batches():
+    qs = get_qs()
+    batches = [get_num_batches(Q) for Q in qs]
+
+
+def get_batch_files(wildcards):
+    Q = int(wildcards.Q)
+    batch = int(wildcards.batch)
+    sim_files = get_sim_output_files(Q)
+    batch = int(wildcards.batch)
+    batch_size = config['batch_size']
+    start = batch * batch_size
+    end = start + batch_size
+    batch_files = list(np.concatenate([sim_files[i][start:end] for i in range(len(sim_files))]))
+    return batch_files
+
+
+def get_num_batches(Q):
+    _, fixation_prob_files, _ = get_sim_output_files(Q=Q)
+    num_batches = np.ceil(len(fixation_prob_files) / config['batch_size'])
+    return int(num_batches)
+
+def get_sim_muts():
+    _, fixation_prob_files, _ = get_sim_output_files(get_qs()[0])
+    # Open up a random fixation_prob file and get the mutations
+    fixation_prob_file = fixation_prob_files[0]
+    df = pd.read_csv(fixation_prob_file)
+    # the mutations are the column names
+    mutations = df.columns.values.tolist()
+    return mutations
+
+def get_expected_graph_files():
+    muts = get_sim_muts()
+    graph_types = ["fixation", "sfs"]
+    # Get the expected output files
+    graph_files = expand(f"{config['output_dir']}/graphs/{{graph_type}}_{{mut}}.png", graph_type=graph_types, mut=muts)
+    ld_file = f"{config['output_dir']}/snakemake_results/ld.png"
+    return graph_files, ld_file
+
+def get_expected_stat_files():
+    stat_files = [f"{config['output_dir']}/kl_divergence.csv", f"{config['output_dir']}/mean_percent_error.csv"]
+    return stat_files
+
+def get_expected_model_files():
+    model_files = [f"{config['output_dir']}/models/{mdl}.png" for mdl in ['rf', 'lr']]
+    return model_files
+
+def get_expected_output_files():
+    graph_files, ld_file = get_expected_graph_files()
+    stat_files = get_expected_stat_files()
+    model_files = get_expected_model_files()
+    full_data_file = f"{config['output_dir']}/snakemake_results/full_data.csv"
+    return graph_files + stat_files + model_files + [ld_file] + [full_data_file] 
+
+onsuccess:
+    shell("rm -rf {config[output_dir]}/batch_tmp_fulldata")
+
+rule create_fulldata:
+    input: 
+        [expand(f"{config['output_dir']}/batch_tmp_fulldata/batch_{{Q}}_{{batch}}.npy", 
+        Q=i, batch=range(get_num_batches(i))) for i in get_qs()]
+    output:
+        f"{config['output_dir']}/full_data.csv"
+    params:
+        muts=get_sim_muts()
+    conda:
+        config["conda_env"]
+    shell:
+        "python scripts/combine_fulldata_batches.py --input_files {input} --output_file {output} --muts {params.muts}"
+    
+rule create_fulldata_batches:
+    input:
+        get_batch_files
+    output:
+        f"{config['output_dir']}/batch_tmp_fulldata/batch_{{Q}}_{{batch}}.npy"
+    conda:
+        config["conda_env"]
+    params:
+        muts=get_sim_muts()
+    shell:
+        ("""
+        mkdir -p {config[output_dir]}/batch_tmp_fulldata
+        python scripts/create_fulldata_batches.py --muts {params.muts} --output_file {output} \
+ --Q {wildcards.Q} --chr_len {config[chr_len]} --input_files {input}
+        """)
+
