@@ -1,5 +1,4 @@
 import argparse
-import pandas as pd
 import numpy as np
 from utils.simparse import fit_fixation_gamma, fit_sfs_gamma, fit_expo_ld, get_fixation_probs
 
