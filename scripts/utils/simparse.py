@@ -52,7 +52,7 @@ def get_ld_decay(sample_file, chr_len, n_bins=50):
                             chr_len//n_bins))
     
     for min_dist, max_dist in dist_bounds:
-        distance_mat = (distances >= min_dist) & (distances <= max_dist)
+        distance_mat = torch.masked_fill(distances, (distances < min_dist) | (distances > max_dist), 0)
         distance_mat = distance_mat.to(device)
         selected_r_squared = r_squared * distance_mat
         r_squared_mean = torch.sum(selected_r_squared)/torch.sum(distance_mat)
