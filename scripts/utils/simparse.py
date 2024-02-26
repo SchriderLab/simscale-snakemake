@@ -138,7 +138,6 @@ def get_ld_decay_features(sample_file, chr_len, n_bins=50):
     r_squared_mean, r_squared_median, ld_lst  = get_ld_decay(sample_file, chr_len, n_bins)
     return [r_squared_mean, r_squared_median] + ld_lst
 
-
 def get_fixation_times(fixation_file: Path, mutation: str, Q: int) -> np.array:
     df = pd.read_csv(fixation_file, index_col=None)
     df = df[df['mutation_id'] == mutation]
@@ -147,7 +146,6 @@ def get_fixation_times(fixation_file: Path, mutation: str, Q: int) -> np.array:
     fixation_times = ((df['fix_gen'] - df['origin_gen'])*Q).to_numpy()
     return fixation_times
      
-
 def get_fixation_features(fixation_file: Path, mutation: str, Q: int, bin_width = 'NA'):
     fixation_times = get_fixation_times(fixation_file, mutation, Q)
     fixation_mean = np.mean(fixation_times)
