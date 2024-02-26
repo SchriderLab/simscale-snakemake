@@ -138,7 +138,7 @@ class PollSqueueThread(threading.Thread):
             except IndexError:
                 logger.warning("Could not parse %s (try %d of %d)", repr(output), try_num, self.max_tries)
             secs = try_num / 2.0
-            loger.info("Sleeping %f seconds", secs)
+            logger.info("Sleeping %f seconds", secs)
             time.sleep(secs)
         raise Exception("Problem with call to %s" % cmd)
 
@@ -151,7 +151,7 @@ class PollSqueueThread(threading.Thread):
         """Run the call to ``squeue``"""
         cluster = CookieCutter.get_cluster_option()
         try_num = 0
-        cmd = [SQUEUE_CMD, "--user={}".format(os.environ.get("USER")), "--format=%i,%T", "--state=all"]
+        cmd = [SQUEUE_CMD, "--user={}".format(os.environ.get("USER")), "--format=%i,%T", "--state=all", '--all']
         if cluster:
             cmd.append(cluster)
         while try_num < self.max_tries:
