@@ -1,2 +1,2 @@
 # simscale-snakemake
-Snakemake pipeline for parrsing simulation outputs across scaling factors
+Snakemake pipeline for parsing simulation outputs across scaling factors
