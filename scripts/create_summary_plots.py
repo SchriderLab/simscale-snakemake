@@ -37,9 +37,27 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['svg.fonttype'] = 'none'
 
+# Sort muts and mut_labels so that the order is always Neutral -> Beneficial -> Deleterious
+def sort_key(x):
+    if x == 'Neutral':
+        return 0
+    elif x == 'Beneficial':
+        return 1
+    elif x == 'Deleterious':
+        return 2
+    else:
+        return 3
+
+if muts is not None and mut_labels is not None:
+    muts, mut_labels = zip(*sorted(zip(muts, mut_labels), key=lambda x: sort_key(x[1])))
+
+
+mut_colors = ListedColormap(plt.cm.viridis(np.linspace(0, 1, 3)))
+mut_colors_dict = {'Neutral': mut_colors(0), 'Beneficial': mut_colors(1), 'Deleterious': mut_colors(2)}
+
 
 def plot_data(data, Qs, muts, mut_labels, xlim, plot_title):
-    fig, axs = plt.subplots(len(muts), 1, sharey=False, sharex=False, figsize=(6, 9))
+    fig, axs = plt.subplots(len(muts), 1, sharey=False, sharex=False, figsize=(6, 3*len(muts)))
     summary_df = pd.DataFrame(columns = ['Mutation', 'Q', 'Mean'])
     if len(muts) == 1:
         axs = [axs]  # Convert axs to a list if there's only one element in muts
@@ -47,7 +65,7 @@ def plot_data(data, Qs, muts, mut_labels, xlim, plot_title):
     colors = ListedColormap(plt.cm.viridis(np.linspace(0, 1, n_colors)))
     for i, (mut, label) in enumerate(zip(muts, mut_labels)):
         for j, Q in enumerate(Qs):
-            mut_df = data[data['Q'] == Q]
+            mut_df = data[data['Q'] == Q].fillna(0)
             if plot_title == 'Fixation times':
                 bin_width = int(mut_df[f'bin_width_fixation_{mut}'].tolist()[0])
                 mean_value = np.mean(mut_df[f'mean_fixation_time_{mut}'].tolist())
@@ -58,7 +76,6 @@ def plot_data(data, Qs, muts, mut_labels, xlim, plot_title):
                 mut_df = mut_df.filter(regex=f'{mut}_sfs')
             # average across rows
             y = mut_df.mean(axis=0).tolist()
-
             summary_df = pd.concat([summary_df, pd.DataFrame({'Mutation': label, 'Q': Q, 'Mean': mean_value}, index=[0])], ignore_index=True)
             if not np.isclose(sum(y), 0):
                 y = [x / sum(y) for x in y]
@@ -68,7 +85,7 @@ def plot_data(data, Qs, muts, mut_labels, xlim, plot_title):
             axs[i].bar([x + j * bar_width for x in x_plt], y, width=bar_width, label=f'Q={Q}', color=color)
         axs[i].set_title(f'{plot_title} for {label.lower()} mutations')
         axs[i].set_xlabel('Fixation time' if plot_title == 'Fixation times' else 'Frequency')
-        axs[i].set_ylabel('Frequency')
+        axs[i].set_ylabel('Frequency' if plot_title == 'Fixation times' else 'Fraction of Polymorphisms')
         if xlim:
             axs[i].set_xlim(0, xlim)
 
@@ -89,10 +106,10 @@ def plot_ld(data, Qs):
         # average across rows
         y = df.mean(axis=0).tolist()
         summary_df = pd.concat([summary_df, pd.DataFrame({'Q': Q, 'Mean': mean_value}, index=[0])], ignore_index=True)
-        if not np.isclose(sum(y), 0):
-            y = [x/sum(y) for x in y]
+        # if not np.isclose(sum(y), 0):
+        #     y = [x/sum(y) for x in y]
 
-        x_plt = list(range(0, len(y), 1))
+        x_plt = list(range(1, len(y) + 1, 1))
         bar_width = 1 / (len(Qs) + 2)
         color = colors(j)
         plt.bar([x + j*bar_width for x in x_plt], y, width=bar_width, label=f'Q={Q}', color=color)
@@ -110,7 +127,6 @@ def plot_probs(data, Qs):
     fig = plt.figure(figsize=(6, 3))
 
     n_colors = len(muts)
-    colors = ListedColormap(plt.cm.viridis(np.linspace(0, 1, n_colors)))
     summary_df = pd.DataFrame(columns = ['Mutation', 'Q', 'Mean'])
     for i, (mut, mut_label) in enumerate(zip(muts, mut_labels)):
         mut_no = int(mut[1:]) - 1
@@ -118,12 +134,13 @@ def plot_probs(data, Qs):
         for Q in Qs:
             df = data[data['Q'] == Q]
             fixation_prob = df[f'fixation_prob_{mut_no}'].tolist()
-            fixation_prob = np.mean(fixation_prob)
+            fixation_prob = (np.mean(fixation_prob))
             probs.append(fixation_prob)
             summary_df = pd.concat([summary_df, pd.DataFrame({'Mutation': mut_label, 'Q': Q, 'Mean': fixation_prob}, index=[0])], ignore_index=True)
         bar_width = 1 / (len(muts) + 2)
         x_plt = [x + 1 for x in range(len(Qs))]
-        plt.bar([x + i * bar_width for x in x_plt] , probs, width = bar_width, color = colors(i),
+        color = mut_colors_dict[mut_label]
+        plt.bar([x + i * bar_width for x in x_plt] , probs, width = bar_width, color = color,
                   label = f'{mut_label} mutations')
     
     plt.xticks([x + 1 for x in range(len(Qs))], Qs)
@@ -163,10 +180,10 @@ if plot_type == 'ld':
     plt.savefig(output_dir / 'graphs/ld.svg', bbox_inches='tight')
     summary_df.to_csv(output_dir / 'summary_stats/ld.csv', index=False)
 
-if plot_type == 'fixation_probs':
+if plot_type == 'fixationprobs':
     fig, summary_df = plot_probs(data, Qs)
     handles, labels = plt.gca().get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper center', ncol = len(labels), bbox_to_anchor=(0.5, 1.15))
     fig.tight_layout()
-    plt.savefig(output_dir / 'graphs/fixation_probs.svg', bbox_inches='tight')
-    summary_df.to_csv(output_dir / 'summary_stats/fixation_probs.csv', index=False)
+    plt.savefig(output_dir / 'graphs/fixationprobs.svg', bbox_inches='tight')
+    summary_df.to_csv(output_dir / 'summary_stats/fixationprobs.csv', index=False)
