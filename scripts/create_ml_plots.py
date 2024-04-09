@@ -21,11 +21,21 @@ output_dir = Path(args.output)
 model = args.model
 
 data = pd.read_csv(input_file)
+
+# drop any columns with more than 50% NaNs
+data = data.dropna(thresh=len(data) // 2, axis=1)
+# drop any rows with NaNs
+data = data.fillna(0)
+
 Qs = data['Q'].unique().tolist()
 Qs.sort()
 lowest_Q = Qs.pop(0)
 
+
+
 data['scaled'] = (data['Q'] == lowest_Q).astype(int)
+
+
 
 feature_filters = {
     'Fixation Times': r'm\d_fixation',
@@ -56,8 +66,9 @@ for i, (feature_type, feature_filter) in enumerate(feature_filters.items()):
     for Q in Qs:
         x = feature_df[(data['Q'] == Q) | (data['Q'] == lowest_Q)]
         scaler = StandardScaler()
-        if model == 'lr':
-            x = scaler.fit_transform(x)
+        # if model == 'lr':
+        #     x = scaler.fit_transform(x)
+        x = scaler.fit_transform(x)
         y = data['scaled'][(data['Q'] == Q) | (data['Q'] == lowest_Q)]
         # shuffle and split training and test sets
         x, y = shuffle(x, y)
