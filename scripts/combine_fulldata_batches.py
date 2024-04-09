@@ -20,7 +20,7 @@ for input_file in tqdm(input_files, file=sys.stdout, total=len(input_files)):
     dfs.append(df)
 
 full_df = pd.concat(dfs, axis=0)
-# replace all NaNs with 0
-full_df = full_df.fillna(0)
+non_ld_cols = [col for col in full_df.columns if 'ld' not in col]
+full_df[non_ld_cols] = full_df[non_ld_cols].fillna(0)
 
 full_df.to_csv(output_file, index=False)
