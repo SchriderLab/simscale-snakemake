@@ -128,6 +128,9 @@ def get_ld_decay(sample_file, chr_len, n_bins=50):
         dist_mask = distance_masks == i
 
         selected_r_squared = r_squared[dist_mask]
+        if len(selected_r_squared) == 0:
+            ld_lst.append(np.nan)
+            continue
         selected_mean = torch.mean(selected_r_squared).cpu().item()
         
         ld_lst.append(selected_mean)
@@ -168,7 +171,7 @@ def get_sfs(sample_file, mutation_type):
     ac_filtered = [ac[x] for x in range(len(ac)) if m_type[x] == mutation_type]
     dac = [x[1] for x in ac_filtered]
     if len(dac) == 0:
-        return [0]
+        return [0] * 201
     else:
         sfs = allel.sfs(dac)
         return sfs
@@ -178,6 +181,8 @@ def get_sfs_features(sample_file, mutation_type):
     reconstructed_sfs = []
     for i in range(len(sfs)):
         reconstructed_sfs += [i] * sfs[i]
+    if len(reconstructed_sfs) == 0:
+        return [0, 0] + [0]*len(sfs)
     mean = np.mean(reconstructed_sfs)
     median = np.median(reconstructed_sfs)
     return [mean, median] + list(sfs)
