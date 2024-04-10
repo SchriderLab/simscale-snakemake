@@ -22,10 +22,35 @@ if 'mutation_labels' in config:
 else:
     mutation_names = {x : x for x in get_sim_muts()}
 
-if 'xlim' in config:
-    xlim = config['xlim']
-else:
-    xlim = {}
+sample_sizes = [0]
+if 'sample_sizes' in config:
+    sample_sizes += config['sample_sizes']
+
+xlim = {}
+muts = {}
+
+if 'fixation' in config:
+    fixation = config['fixation']
+    if 'xlim' in fixation:
+        xlim['fixation'] = fixation['xlim']
+    if 'muts' in fixation:
+        muts['fixation'] = fixation['muts']
+
+if 'sfs' in config:
+    sfs = config['sfs']
+    if 'xlim' in sfs:
+        xlim['sfs'] = sfs['xlim']
+    if 'muts' in sfs:
+        muts['sfs'] = sfs['muts']
+
+if 'fixationprobs' in config:
+    fixationprobs = config['fixationprobs']
+    if 'muts' in fixationprobs:
+        muts['fixationprobs'] = fixationprobs['muts']
+
+outcomes = ['fixation', 'sfs', 'ld', 'fixationprobs']
+kld_outcomes = ['fixation', 'sfs']
+
 
 # expensive I/O function, cache it, but not too much
 @lru_cache(maxsize=10)
@@ -115,156 +140,37 @@ onsuccess:
 
 rule all:
     input:
-        f"{output_dir}/graphs/sfs.svg",
-        f"{output_dir}/summary_stats/sfs.csv",
-        f"{output_dir}/graphs/fixation.svg",
-        f"{output_dir}/summary_stats/fixation.csv",
-        f"{output_dir}/graphs/ld.svg",
-        f"{output_dir}/summary_stats/ld.csv",
-        f"{output_dir}/graphs/fixationprobs.svg",
-        f"{output_dir}/summary_stats/fixationprobs.csv",
+        expand(f"{output_dir}/graphs/plot_{{outcome}}.svg", outcome=outcomes),
+        expand(f"{output_dir}/summary_stats/plot_{{outcome}}.csv", outcome=outcomes),
         f"{output_dir}/graphs/rf_accuracy.svg",
         f"{output_dir}/summary_stats/rf_accuracy.csv",
         f"{output_dir}/graphs/lr_accuracy.svg",
         f"{output_dir}/summary_stats/lr_accuracy.csv",
-        f"{output_dir}/graphs/kl_divergence_fixation.svg",
-        f"{output_dir}/graphs/sampling/kl_divergence_fixation_100.svg",
-        f"{output_dir}/graphs/sampling/kl_divergence_fixation_10.svg",
-        f"{output_dir}/summary_stats/kl_divergence_fixation.csv",
-        f"{output_dir}/summary_stats/sampling/kl_divergence_fixation_100.csv",
-        f"{output_dir}/summary_stats/sampling/kl_divergence_fixation_10.csv",
-        f"{output_dir}/graphs/kl_divergence_sfs.svg",
-        f"{output_dir}/graphs/sampling/kl_divergence_sfs_100.svg",
-        f"{output_dir}/graphs/sampling/kl_divergence_sfs_10.svg",
-        f"{output_dir}/summary_stats/kl_divergence_sfs.csv",
-        f"{output_dir}/summary_stats/sampling/kl_divergence_sfs_100.csv",
-        f"{output_dir}/summary_stats/sampling/kl_divergence_sfs_10.csv",
-        f"{output_dir}/graphs/average_rmse_ld.svg",
-        f"{output_dir}/graphs/sampling/average_rmse_ld_100.svg",
-        f"{output_dir}/graphs/sampling/average_rmse_ld_10.svg",
-        f"{output_dir}/summary_stats/average_rmse_ld.csv",
-        f"{output_dir}/summary_stats/sampling/average_rmse_ld_100.csv",
-        f"{output_dir}/summary_stats/sampling/average_rmse_ld_10.csv",
-        f"{output_dir}/graphs/mean_percent_error_fixation.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_fixation_500.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_fixation_100.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_fixation_50.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_fixation_10.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_fixation.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_fixation_500.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_fixation_100.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_fixation_50.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_fixation_10.csv",
-        f"{output_dir}/graphs/mean_percent_error_sfs.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_sfs_500.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_sfs_100.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_sfs_50.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_sfs_10.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_sfs.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_sfs_500.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_sfs_100.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_sfs_50.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_sfs_10.csv",
-        f"{output_dir}/graphs/mean_percent_error_ld.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_ld_500.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_ld_100.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_ld_50.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_ld_10.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_ld.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_ld_500.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_ld_100.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_ld_50.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_ld_10.csv",
-        f"{output_dir}/graphs/mean_percent_error_fixationprobs.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_fixationprobs_500.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_fixationprobs_100.svg",
-        # f"{output_dir}/graphs/sampling/mean_percent_error_fixationprobs_50.svg",
-        f"{output_dir}/graphs/sampling/mean_percent_error_fixationprobs_10.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_fixationprobs.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_fixationprobs_500.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_fixationprobs_100.csv",
-        # f"{output_dir}/summary_stats/sampling/mean_percent_error_fixationprobs_50.csv",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_fixationprobs_10.csv",
-        f"{output_dir}/graphs/median_percent_error_fixation.svg",
-        f"{output_dir}/summary_stats/median_percent_error_fixation.csv",
-        f"{output_dir}/graphs/median_percent_error_sfs.svg",
-        f"{output_dir}/summary_stats/median_percent_error_sfs.csv",
-        f"{output_dir}/graphs/median_percent_error_ld.svg",
-        f"{output_dir}/summary_stats/median_percent_error_ld.csv",
-    
-rule graph_sfs:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/sfs.svg",
-        f"{output_dir}/summary_stats/sfs.csv"
-    conda:
-        config["conda_env"]
-    group:
-        "graphs"
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()],
-        xlim = xlim.get('sfs', 0)
-    shell:
-        ("""
-        python scripts/create_summary_plots.py --input {input} --output {output_dir} --type sfs --muts {params.muts} --mut_labels {params.mut_labels} --xlim {params.xlim}
-        """)
+        expand(f'{output_dir}/graphs/kl_divergence_{{outcome}}_{{sample}}.svg', outcome = kld_outcomes, sample=sample_sizes),
+        expand(f'{output_dir}/summary_stats/kl_divergence_{{outcome}}_{{sample}}.csv', outcome = kld_outcomes, sample=sample_sizes),
+        expand(f'{output_dir}/graphs/average_rmse_ld_{{sample}}.svg', sample=sample_sizes),
+        expand(f'{output_dir}/summary_stats/average_rmse_ld_{{sample}}.csv', sample=sample_sizes),
+        expand(f'{output_dir}/graphs/mean_percent_error_{{outcome}}_{{sample}}.svg', outcome=outcomes, sample=sample_sizes),
+        expand(f'{output_dir}/summary_stats/mean_percent_error_{{outcome}}_{{sample}}.csv', outcome=outcomes, sample=sample_sizes)
+        
 
-rule graph_fixation:
+rule graph_outcomes:
     input:
         f"{output_dir}/full_data.csv"
     output:
-        f"{output_dir}/graphs/fixation.svg",
-        f"{output_dir}/summary_stats/fixation.csv"
+        f"{output_dir}/graphs/plot_{{outcome}}.svg",
+        f"{output_dir}/summary_stats/plot_{{outcome}}.csv"
     conda:
         config["conda_env"]
     group:
         "graphs"
     params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()],
-        xlim = xlim.get('fixation', 0)
+        muts = muts.get('{outcome}', get_sim_muts()),
+        mut_labels = [mutation_names[mut] for mut in muts.get('{outcome}', get_sim_muts())],
+        xlim = xlim.get('{outcome}', 0)
     shell:
         ("""
-        python scripts/create_summary_plots.py --input {input} --output {output_dir} --type fixation --muts {params.muts} --mut_labels {params.mut_labels} --xlim {params.xlim}
-        """)
-
-rule graph_ld:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/ld.svg",
-        f"{output_dir}/summary_stats/ld.csv"
-    conda:
-        config["conda_env"]
-    group:
-        "graphs"
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()],
-        xlim = xlim.get('ld', 0)
-    shell:
-        ("""
-        python scripts/create_summary_plots.py --input {input} --output {output_dir} --type ld --muts {params.muts} --mut_labels {params.mut_labels} --xlim {params.xlim}
-        """)
-
-rule graph_fixationprobs:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/fixationprobs.svg",
-        f"{output_dir}/summary_stats/fixationprobs.csv"
-    conda:
-        config["conda_env"]
-    group:
-        "graphs"
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    shell:
-        ("""
-        python scripts/create_summary_plots.py --input {input} --output {output_dir} --muts {params.muts} --mut_labels {params.mut_labels} --type fixationprobs
+        python scripts/create_summary_plots.py --input {input} --output {output_dir} --type {wildcards.outcome} --muts {params.muts} --mut_labels {params.mut_labels} --xlim {params.xlim}
         """)
 
 
@@ -298,311 +204,57 @@ rule graph_lr:
         python scripts/create_ml_plots.py --input {input} --output {output_dir} --model lr 
         """)
 
-rule kl_divergence_fixation:
+rule kl_divergence:
     input:
         f"{output_dir}/full_data.csv"
     output:
-        f"{output_dir}/graphs/kl_divergence_fixation.svg",
-        f"{output_dir}/summary_stats/kl_divergence_fixation.csv"
-    conda:
+        f"{output_dir}/graphs/kl_divergence_{{outcome}}_{{sample}}.svg",
+        f"{output_dir}/summary_stats/kl_divergence_{{outcome}}_{{sample}}.csv"
+    conda: 
         config["conda_env"]
     params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
+        muts = muts.get('{outcome}', get_sim_muts()),
+        mut_labels = [mutation_names[mut] for mut in muts.get('{outcome}', get_sim_muts())]
     group:
         "stats"
     shell:
         ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type kl --muts {params.muts} --mut_labels {params.mut_labels} --stat fixation
+        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type kl --muts {params.muts} --mut_labels {params.mut_labels} --stat {wildcards.outcome} --sample_size {wildcards.sample}
         """)
 
-rule kl_divergence_fixation_sample:
+rule mean_percent_error:
     input:
         f"{output_dir}/full_data.csv"
     output:
-        f"{output_dir}/graphs/sampling/kl_divergence_fixation_{{sample}}.svg",
-        f"{output_dir}/summary_stats/sampling/kl_divergence_fixation_{{sample}}.csv"
+        f"{output_dir}/graphs/mean_percent_error_{{outcome}}_{{sample}}.svg",
+        f"{output_dir}/summary_stats/mean_percent_error_{{outcome}}_{{sample}}.csv"
     conda:
         config["conda_env"]
     params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
+        muts = muts.get('{outcome}', get_sim_muts()),
+        mut_labels = [mutation_names[mut] for mut in muts.get('{outcome}', get_sim_muts())]
     group:
         "stats"
     shell:
         ("""
-        python scripts/create_divergence_plots_sampling.py --input {input} --output {output_dir} --type kl --muts {params.muts} --mut_labels {params.mut_labels} --stat fixation --sample_size {wildcards.sample}
+        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type mean_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat {wildcards.outcome} --sample_size {wildcards.sample}
         """)
-    
-rule kl_divergence_sfs:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/kl_divergence_sfs.svg",
-        f"{output_dir}/summary_stats/kl_divergence_sfs.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type kl --muts {params.muts} --mut_labels {params.mut_labels} --stat sfs
-        """)
-    
-rule kl_divergence_sfs_sample:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/sampling/kl_divergence_sfs_{{sample}}.svg",
-        f"{output_dir}/summary_stats/sampling/kl_divergence_sfs_{{sample}}.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots_sampling.py --input {input} --output {output_dir} --type kl --muts {params.muts} --mut_labels {params.mut_labels} --stat sfs --sample_size {wildcards.sample}
-        """)
-    
-# rule kl_divergence_ld:
-#     input:
-#         f"{output_dir}/full_data.csv"
-#     output:
-#         f"{output_dir}/graphs/kl_divergence_ld.svg",
-#         f"{output_dir}/summary_stats/kl_divergence_ld.csv"
-#     conda:
-#         config["conda_env"]
-#     group:
-#         "stats"
-#     shell:
-#         ("""
-#         python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type kl --stat ld
-#         """)
 
 rule average_rmse_ld:
     input:
         f"{output_dir}/full_data.csv"
     output:
-        f"{output_dir}/graphs/average_rmse_ld.svg",
-        f"{output_dir}/summary_stats/average_rmse_ld.csv"
+        f"{output_dir}/graphs/average_rmse_ld_{{sample}}.svg",
+        f"{output_dir}/summary_stats/average_rmse_ld_{{sample}}.csv"
     conda:
         config["conda_env"]
     group:
         "stats"
     shell:
         ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type average_rmse --stat ld
+        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type average_rmse --stat ld --sample_size {wildcards.sample}
         """)
 
-rule average_rmse_ld_sample:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/sampling/average_rmse_ld_{{sample}}.svg",
-        f"{output_dir}/summary_stats/sampling/average_rmse_ld_{{sample}}.csv"
-    conda:
-        config["conda_env"]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots_sampling.py --input {input} --output {output_dir} --type average_rmse --stat ld --sample_size {wildcards.sample}
-        """)
-
-rule mean_percent_error_fixation:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/mean_percent_error_fixation.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_fixation.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type mean_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat fixation
-        """)
-    
-rule mean_percent_error_fixation_sample:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/sampling/mean_percent_error_fixation_{{sample}}.svg",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_fixation_{{sample}}.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots_sampling.py --input {input} --output {output_dir} --type mean_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat fixation --sample {wildcards.sample}
-        """)
-    
-rule mean_percent_error_sfs:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/mean_percent_error_sfs.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_sfs.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type mean_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat sfs
-        """)
-
-rule mean_percent_error_sfs_sample:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/sampling/mean_percent_error_sfs_{{sample}}.svg",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_sfs_{{sample}}.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots_sampling.py --input {input} --output {output_dir} --type mean_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat sfs --sample {wildcards.sample}
-        """)
-
-rule mean_percent_error_ld:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/mean_percent_error_ld.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_ld.csv"
-    conda:
-        config["conda_env"]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type mean_percent_error --stat ld
-        """)
-
-rule mean_percent_error_ld_sample:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/sampling/mean_percent_error_ld_{{sample}}.svg",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_ld_{{sample}}.csv"
-    conda:
-        config["conda_env"]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots_sampling.py --input {input} --output {output_dir} --type mean_percent_error --stat ld --sample {wildcards.sample}
-        """)
-
-rule mean_percent_error_fixationprobs:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/mean_percent_error_fixationprobs.svg",
-        f"{output_dir}/summary_stats/mean_percent_error_fixationprobs.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type mean_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat fixationprobs
-        """)
-    
-rule mean_percent_error_fixationprobs_sample:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/sampling/mean_percent_error_fixationprobs_{{sample}}.svg",
-        f"{output_dir}/summary_stats/sampling/mean_percent_error_fixationprobs_{{sample}}.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots_sampling.py --input {input} --output {output_dir} --type mean_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat fixationprobs --sample {wildcards.sample}
-        """)
-
-rule median_percent_error_fixation:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/median_percent_error_fixation.svg",
-        f"{output_dir}/summary_stats/median_percent_error_fixation.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type median_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat fixation
-        """)
-
-rule median_percent_error_sfs:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/median_percent_error_sfs.svg",
-        f"{output_dir}/summary_stats/median_percent_error_sfs.csv"
-    conda:
-        config["conda_env"]
-    params:
-        muts = get_sim_muts(),
-        mut_labels = [mutation_names[mut] for mut in get_sim_muts()]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type median_percent_error --muts {params.muts} --mut_labels {params.mut_labels} --stat sfs
-        """)
-    
-rule median_percent_error_ld:
-    input:
-        f"{output_dir}/full_data.csv"
-    output:
-        f"{output_dir}/graphs/median_percent_error_ld.svg",
-        f"{output_dir}/summary_stats/median_percent_error_ld.csv"
-    conda:
-        config["conda_env"]
-    group:
-        "stats"
-    shell:
-        ("""
-        python scripts/create_divergence_plots.py --input {input} --output {output_dir} --type median_percent_error --stat ld
-        """)
 
 rule create_fulldata:
     input: 

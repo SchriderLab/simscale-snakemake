@@ -15,6 +15,7 @@ argparser.add_argument('--type', help='Type of divergence to plot', required=Tru
 argparser.add_argument('--muts', type=str, nargs='+', help='Mutation types to include', default=None)
 argparser.add_argument('--mut_labels', type=str, nargs='+', help='Labels for mutation types', default=None)
 argparser.add_argument('--stat', type=str, help='Statistic to prase', required=True)
+argparser.add_argument('--sample_size', type=int, help='Sample size', default=None)
 
 args = argparser.parse_args()
 stat = args.stat
@@ -43,7 +44,8 @@ if stat != 'ld':
 divergence_type = args.type
 input_file = Path(args.input)
 output_dir = Path(args.output)
-
+sample_size = args.sample_size
+sample_label = (f'_{sample_size}')
 mut_colors = ListedColormap(plt.cm.viridis(np.linspace(0, 1, 3)))
 mut_colors_dict = {'Neutral': mut_colors(0), 'Beneficial': mut_colors(1), 'Deleterious': mut_colors(2)}
 
@@ -65,13 +67,15 @@ if divergence_type == 'kl':
             for Q in Qs:
                 data_Q = data[data['Q'] == Q]
                 data_mut = data_Q.filter(regex=f'{mut}_fixation') 
+                if sample_size:
+                    data_mut = data_mut.sample(sample_size)
                 data_mut = np.average(data_mut, axis=0)
                 data_mut = [x / sum(data_mut) + np.finfo(float).eps for x in data_mut]
-                #print(data_mut)
                 data_lowest_mut = data_lowest_Q.filter(regex=f'{mut}_fixation')
+                if sample_size:
+                    data_lowest_mut = data_lowest_mut.sample(sample_size)
                 data_lowest_mut = np.average(data_lowest_mut, axis=0)
                 data_lowest_mut = [x / sum(data_lowest_mut) + np.finfo(float).eps for x in data_lowest_mut]
-                #print(data_lowest_mut[data_lowest_mut == 0])
                 divergence = entropy(data_lowest_mut, data_mut)
                 kl_divergence.append(divergence)
                 kl_div_df = pd.concat([kl_div_df, pd.DataFrame({'Q': [Q], 'mutation': [mut_label], 'kl_divergence': [divergence]})])
@@ -85,8 +89,8 @@ if divergence_type == 'kl':
         plt.xlabel('Q')
         plt.ylabel('KL divergence')
         plt.legend()
-        plt.savefig(output_dir / "graphs/kl_divergence_fixation.svg" , bbox_inches='tight')
-        kl_div_df.to_csv(output_dir / "summary_stats/kl_divergence_fixation.csv", index=False)
+        plt.savefig(output_dir / f'graphs/kl_divergence_fixation{sample_label}.svg' , bbox_inches='tight')
+        kl_div_df.to_csv(output_dir / f'summary_stats/kl_divergence_fixation{sample_label}.csv', index=False)
 
     elif stat == 'sfs':
         for i, (mut, mut_label) in enumerate(zip(muts, mut_labels)):
@@ -94,10 +98,13 @@ if divergence_type == 'kl':
             for Q in Qs:
                 data_Q = data[data['Q'] == Q]
                 data_mut = data_Q.filter(regex=f'{mut}_sfs') 
+                if sample_size:
+                    data_mut = data_mut.sample(sample_size)
                 data_mut = np.average(data_mut, axis=0)
                 data_mut = [x / sum(data_mut) + np.finfo(float).eps for x in data_mut]
-                #print(data_mut)
                 data_lowest_mut = data_lowest_Q.filter(regex=f'{mut}_sfs')
+                if sample_size:
+                    data_lowest_mut = data_lowest_mut.sample(sample_size)
                 data_lowest_mut = np.average(data_lowest_mut, axis=0)
                 data_lowest_mut = [x / sum(data_lowest_mut) + np.finfo(float).eps for x in data_lowest_mut]
                 #print(data_lowest_mut[data_lowest_mut == 0])
@@ -114,17 +121,21 @@ if divergence_type == 'kl':
         plt.xlabel('Q')
         plt.ylabel('KL divergence')
         plt.legend()
-        plt.savefig(output_dir / 'graphs/kl_divergence_sfs.svg', bbox_inches='tight')
-        kl_div_df.to_csv(output_dir / "summary_stats/kl_divergence_sfs.csv", index=False)
+        plt.savefig(output_dir / f'graphs/kl_divergence_sfs{sample_label}.svg', bbox_inches='tight')
+        kl_div_df.to_csv(output_dir / f'summary_stats/kl_divergence_sfs{sample_label}.csv', index=False)
 
     elif stat == 'ld':
         kl_divergence = []
         for Q in Qs:
             data_Q = data[data['Q'] == Q]
             data_ld = data_Q.filter(regex=r'ld_\d+')
+            if sample_size:
+                data_ld = data_ld.sample(sample_size)
             data_ld = np.average(data_ld, axis=0)
             data_ld = [x / sum(data_ld) + np.finfo(float).eps for x in data_ld]
             data_lowest_ld = data_lowest_Q.filter(regex=r'ld_\d+')
+            if sample_size:
+                data_lowest_ld = data_lowest_ld.sample(sample_size)
             data_lowest_ld = np.average(data_lowest_ld, axis=0)
             data_lowest_mut = [x / sum(data_lowest_ld) + np.finfo(float).eps for x in data_lowest_ld]
             divergence = entropy(data_lowest_ld, data_ld)
@@ -135,8 +146,8 @@ if divergence_type == 'kl':
         plt.title('KL divergence of Linkage Disequilibrium')
         plt.xlabel('Q')
         plt.ylabel('KL divergence')
-        plt.savefig(output_dir / 'graphs/kl_divergence_ld.svg', bbox_inches='tight')
-        kl_div_df.to_csv(output_dir / 'summary_stats/kl_divergence_ld.csv', index=False)
+        plt.savefig(output_dir / f'graphs/kl_divergence_ld{sample_label}.svg', bbox_inches='tight')
+        kl_div_df.to_csv(output_dir / f'summary_stats/kl_divergence_ld{sample_label}.csv', index=False)
 
 elif divergence_type == 'mean_percent_error':
     df_divergence = pd.DataFrame(columns=['Q', 'mutation', 'mean_percent_error'])
@@ -145,9 +156,14 @@ elif divergence_type == 'mean_percent_error':
             mean_divergence = []
             for Q in Qs:
                 data_Q = data[data['Q'] == Q]
+                if sample_size:
+                    data_Q = data_Q.sample(sample_size)
                 data_mut = data_Q[f'mean_fixation_time_{mut}'].tolist()
                 data_mut = np.average(data_mut)
-                data_lowest_mut = data_lowest_Q[f'mean_fixation_time_{mut}'].tolist()
+                data_lowest_mut = data_lowest_Q[f'mean_fixation_time_{mut}']
+                if sample_size:
+                    data_lowest_mut = data_lowest_mut.sample(sample_size)
+                data_lowest_mut = data_lowest_mut.tolist()
                 data_lowest_mut = np.average(data_lowest_mut)
                 #print(data_lowest_mut[data_lowest_mut == 0])
                 if data_mut == 0 or data_lowest_mut == 0:
@@ -165,17 +181,22 @@ elif divergence_type == 'mean_percent_error':
         plt.xlabel('Q')
         plt.ylabel('Mean Percent Error')
         plt.legend()
-        plt.savefig(output_dir / 'graphs/mean_percent_error_fixation.svg', bbox_inches='tight')
-        df_divergence.to_csv(output_dir / 'summary_stats/mean_percent_error_fixation.csv', index=False)
+        plt.savefig(output_dir / f'graphs/mean_percent_error_fixation{sample_label}.svg', bbox_inches='tight')
+        df_divergence.to_csv(output_dir / f'summary_stats/mean_percent_error_fixation{sample_label}.csv', index=False)
 
     elif stat == 'sfs':
         for i, (mut, mut_label) in enumerate(zip(muts, mut_labels)):
             mean_divergence = []
             for Q in Qs:
                 data_Q = data[data['Q'] == Q]
+                if sample_size:
+                    data_Q = data_Q.sample(sample_size)
                 data_mut = data_Q[f'mean_sfs_{mut}'].tolist()
                 data_mut = np.average(data_mut)
-                data_lowest_mut = data_lowest_Q[f'mean_sfs_{mut}'].tolist()
+                data_lowest_mut = data_lowest_Q[f'mean_sfs_{mut}']
+                if sample_size:
+                    data_lowest_mut = data_lowest_mut.sample(sample_size)
+                data_lowest_mut = data_lowest_mut.tolist()
                 data_lowest_mut = np.average(data_lowest_mut)
                 #print(data_lowest_mut[data_lowest_mut == 0])
                 divergence = ((data_mut - data_lowest_mut)/data_lowest_mut) * 100
@@ -190,16 +211,21 @@ elif divergence_type == 'mean_percent_error':
         plt.xlabel('Q')
         plt.ylabel('Mean Percent Error')
         plt.legend()
-        plt.savefig(output_dir / 'graphs/mean_percent_error_sfs.svg', bbox_inches='tight')
-        df_divergence.to_csv(output_dir / 'summary_stats/mean_percent_error_sfs.csv', index=False)
+        plt.savefig(output_dir / f'graphs/mean_percent_error_sfs{sample_label}.svg', bbox_inches='tight')
+        df_divergence.to_csv(output_dir / f'summary_stats/mean_percent_error_sfs{sample_label}.csv', index=False)
     
     elif stat == 'ld':
         mean_divergence = []
         for Q in Qs:
             data_Q = data[data['Q'] == Q]
+            if sample_size:
+                data_Q = data_Q.sample(sample_size)
             data_ld = data_Q['mean_ld'].tolist()
             data_ld = np.average(data_ld)
-            data_lowest_ld = data_lowest_Q['mean_ld'].tolist()
+            data_lowest_ld = data_lowest_Q['mean_ld']
+            if sample_size:
+                data_lowest_ld = data_lowest_ld.sample(sample_size)
+            data_lowest_ld = data_lowest_ld.tolist()
             data_lowest_ld = np.average(data_lowest_ld)
             divergence = ((data_ld - data_lowest_ld)/data_lowest_ld) * 100
             mean_divergence.append(divergence)
@@ -209,8 +235,8 @@ elif divergence_type == 'mean_percent_error':
         plt.title('Mean Percent Error of Average Linkage Disequilibrium')
         plt.xlabel('Q')
         plt.ylabel('Mean Percent Error')
-        plt.savefig(output_dir / 'graphs/mean_percent_error_ld.svg', bbox_inches='tight')
-        df_divergence.to_csv(output_dir / 'summary_stats/mean_percent_error_ld.csv', index=False)
+        plt.savefig(output_dir / f'graphs/mean_percent_error_ld{sample_label}.svg', bbox_inches='tight')
+        df_divergence.to_csv(output_dir / f'summary_stats/mean_percent_error_ld{sample_label}.csv', index=False)
 
     elif stat == 'fixationprobs':
         mean_divergence = []
@@ -219,9 +245,14 @@ elif divergence_type == 'mean_percent_error':
             mut_no = int(mut[1:]) - 1
             for Q in Qs:
                 data_Q = data[data['Q'] == Q]
+                if sample_size:
+                    data_Q = data_Q.sample(sample_size)
                 data_mut = data_Q[f'fixation_prob_{mut_no}'].tolist()
                 data_mut = np.average(data_mut)
-                data_lowest_mut = data_lowest_Q[f'fixation_prob_{mut_no}'].tolist()
+                data_lowest_mut = data_lowest_Q[f'fixation_prob_{mut_no}']
+                if sample_size:
+                    data_lowest_mut = data_lowest_mut.sample(sample_size)
+                data_lowest_mut = data_lowest_mut.tolist()
                 data_lowest_mut = np.average(data_lowest_mut)
                 #print(data_lowest_mut[data_lowest_mut == 0])
                 divergence = ((data_mut - data_lowest_mut)/data_lowest_mut) * 100
@@ -236,8 +267,8 @@ elif divergence_type == 'mean_percent_error':
         plt.xlabel('Q')
         plt.ylabel('Mean Percent Error')
         plt.legend()
-        plt.savefig(output_dir / 'graphs/mean_percent_error_fixationprobs.svg', bbox_inches='tight')
-        df_divergence.to_csv(output_dir / 'summary_stats/mean_percent_error_fixationprobs.csv', index=False)
+        plt.savefig(output_dir / f'graphs/mean_percent_error_fixationprobs{sample_label}.svg', bbox_inches='tight')
+        df_divergence.to_csv(output_dir / f'summary_stats/mean_percent_error_fixationprobs{sample_label}.csv', index=False)
 
 elif divergence_type == 'median_percent_error':
     df_divergence = pd.DataFrame(columns=['Q', 'mutation', 'median_percent_error'])
@@ -263,8 +294,9 @@ elif divergence_type == 'median_percent_error':
         plt.xlabel('Q')
         plt.ylabel('Median Percent Error')
         plt.legend()
-        plt.savefig(output_dir / 'graphs/median_percent_error_fixation.svg', bbox_inches='tight')
-        df_divergence.to_csv(output_dir / 'summary_stats/median_percent_error_fixation.csv', index=False)
+        sample_label = (f'{sample_size}' if sample_size else '')
+        plt.savefig(output_dir / f'graphs/median_percent_error_fixation_{sample_label}.svg', bbox_inches='tight')
+        df_divergence.to_csv(output_dir / f'summary_stats/median_percent_error_fixation_{sample_label}.csv', index=False)
 
     elif stat == 'sfs':
         for i, (mut, mut_label) in enumerate(zip(muts, mut_labels)):
@@ -288,8 +320,9 @@ elif divergence_type == 'median_percent_error':
         plt.xlabel('Q')
         plt.ylabel('Median Percent Error')
         plt.legend()
-        plt.savefig(output_dir / 'graphs/median_percent_error_sfs.svg', bbox_inches='tight')
-        df_divergence.to_csv(output_dir / 'summary_stats/median_percent_error_sfs.csv', index=False)
+        sample_label = (f'{sample_size}' if sample_size else '')
+        plt.savefig(output_dir / f'graphs/median_percent_error_sfs_{sample_label}.svg', bbox_inches='tight')
+        df_divergence.to_csv(output_dir / f'summary_stats/median_percent_error_sfs_{sample_label}.csv', index=False)
     
     elif stat == 'ld':
         median_divergence = []
@@ -316,9 +349,14 @@ elif divergence_type == 'average_rmse':
         rmse = []
         for Q in Qs:
             data_Q = data[data['Q'] == Q]
+            if sample_size:
+                data_Q = data_Q.sample(sample_size)
             data_ld = data_Q.filter(regex=r'ld_\d+').mean(axis = 0)
             data_ld = data_ld.to_numpy()
-            data_lowest_ld = data_lowest_Q.filter(regex=r'ld_\d+').mean(axis = 0)
+            data_lowest_ld = data_lowest_Q.filter(regex=r'ld_\d+')
+            if sample_size:
+                data_lowest_ld = data_lowest_ld.sample(sample_size)
+            data_lowest_ld = data_lowest_ld.mean(axis = 0)
             data_lowest_ld = data_lowest_ld.to_numpy()
             # remove any columns if there are 
             rmse.append(np.sqrt(np.mean((data_ld - data_lowest_ld)**2)))
@@ -327,6 +365,6 @@ elif divergence_type == 'average_rmse':
         plt.title('Average RMSE of Linkage Disequilibrium')
         plt.xlabel('Q')
         plt.ylabel('Average RMSE')
-        plt.savefig(output_dir / 'graphs/average_rmse_ld.svg', bbox_inches='tight')
-        pd.DataFrame({'Q': Qs, 'average_rmse': rmse}).to_csv(output_dir / 'summary_stats/average_rmse_ld.csv', index=False)
+        plt.savefig(output_dir / f'graphs/average_rmse_ld{sample_label}.svg', bbox_inches='tight')
+        pd.DataFrame({'Q': Qs, 'average_rmse': rmse}).to_csv(output_dir / f'summary_stats/average_rmse_ld{sample_label}.csv', index=False)
 

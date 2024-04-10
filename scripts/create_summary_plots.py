@@ -157,8 +157,8 @@ if plot_type == 'fixation':
     #fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(1.06,0.96))
     fig.legend(handles, labels, loc='upper center', ncol = len(labels), bbox_to_anchor=(0.5, 1.06))
     #fig.savefig(output_file, dpi=800, bbox_inches='tight')
-    plt.savefig(output_dir / 'graphs/fixation.svg', bbox_inches='tight')
-    summary_df.to_csv(output_dir / 'summary_stats/fixation.csv', index=False)
+    plt.savefig(output_dir / 'graphs/plot_fixation.svg', bbox_inches='tight')
+    summary_df.to_csv(output_dir / 'summary_stats/plot_fixation.csv', index=False)
 
 if plot_type == 'sfs':
     fig, axs, summary_df = plot_data(data, Qs, muts, mut_labels, xlim, 'SFS')
@@ -168,8 +168,8 @@ if plot_type == 'sfs':
     fig.legend(handles, labels, loc='upper center', ncol = len(labels), bbox_to_anchor=(0.5, 1.06))
     #fig.legend(handles, labels, loc='outside right upper')
 
-    plt.savefig(output_dir / 'graphs/sfs.svg', bbox_inches='tight')
-    summary_df.to_csv(output_dir / 'summary_stats/sfs.csv', index=False)
+    plt.savefig(output_dir / 'graphs/plot_sfs.svg', bbox_inches='tight')
+    summary_df.to_csv(output_dir / 'summary_stats/plot_sfs.csv', index=False)
 
 if plot_type == 'ld':
     fig, summary_df = plot_ld(data, Qs)
@@ -177,13 +177,13 @@ if plot_type == 'ld':
 
     fig.legend(handles, labels, loc='upper center', ncol = len(labels), bbox_to_anchor=(0.5, 1.15))
     fig.tight_layout()
-    plt.savefig(output_dir / 'graphs/ld.svg', bbox_inches='tight')
-    summary_df.to_csv(output_dir / 'summary_stats/ld.csv', index=False)
+    plt.savefig(output_dir / 'graphs/plot_ld.svg', bbox_inches='tight')
+    summary_df.to_csv(output_dir / 'summary_stats/plot_ld.csv', index=False)
 
 if plot_type == 'fixationprobs':
     fig, summary_df = plot_probs(data, Qs)
     handles, labels = plt.gca().get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper center', ncol = len(labels), bbox_to_anchor=(0.5, 1.15))
     fig.tight_layout()
-    plt.savefig(output_dir / 'graphs/fixationprobs.svg', bbox_inches='tight')
-    summary_df.to_csv(output_dir / 'summary_stats/fixationprobs.csv', index=False)
+    plt.savefig(output_dir / 'graphs/plot_fixationprobs.svg', bbox_inches='tight')
+    summary_df.to_csv(output_dir / 'summary_stats/plot_fixationprobs.csv', index=False)
