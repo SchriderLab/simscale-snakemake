@@ -4,21 +4,29 @@ restart-times: "0"
 jobscript: "slurm-jobscript.sh"
 cluster: "slurm-submit.py"
 cluster-status: "slurm-status.py"
-max-jobs-per-second: "10"
+max-jobs-per-second: "15"
 max-status-checks-per-second: "10"
 local-cores: 1
-latency-wait: "5"
+latency-wait: "20"
 use-conda: "True"
+conda-frontend: "conda"
 use-singularity: "False"
-jobs: "500"
+jobs: "50"
 printshellcmds: "True"
-keep-going: "True"
+keep-going: "False"
 rerun-incomplete: "True"
 
 set-resources:
   create_fulldata_batches:
-    runtime: 30
-    mem_mb: 10000
+    runtime: 120
+    mem_mb: 12000
+    ntasks: 1
+  create_fulldata:
+    runtime: 300
+    mem_mb: 50000
+default-resources:
+  runtime: 100
+  mem_mb: 6000
 # Example resource configuration
 # default-resources:
 #   - runtime=100
