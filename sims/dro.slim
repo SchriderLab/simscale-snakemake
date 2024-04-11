@@ -1,0 +1,128 @@
+initialize() {
+
+	//command-line constants:
+	//defineConstant('log_dir', 'Directory where simulation outcomes are stored');
+	//defineConstant('job_no', 'Replicate');
+	//defineConstant('Q', 'Scaling Factor');
+	
+	defineConstant('base_pop_size', 1720600);
+	
+	
+	// the number of mutations in the sim	
+	defineConstant("num_muts", 3);
+	
+	defineConstant("L", 9999);
+	// define base constants
+	recombination_rates = c(1.9809378853406417e-08 * Q);
+	recombination_ends = c(L);
+        
+	// initialize scaled parameters	      
+	initializeRecombinationRate(recombination_rates, recombination_ends);
+	defineConstant("pop_size", asInteger(base_pop_size / Q));
+	defineConstant("burn_in_time", 10*pop_size);
+	defineConstant("run_time", 4*pop_size+burn_in_time);
+
+	// define storage directory
+	defineConstant("store_dir", log_dir + "Q" + Q);
+
+	// create matrices to store mutation and fixation counts
+	defineConstant("mut_count_mat", matrix(rep(0,num_muts), nrow=1));
+	defineConstant("fix_count_mat", matrix(rep(0,num_muts), nrow=1));
+	
+
+   initializeMutationType(1, 0.5, "f", Q * 0);
+   initializeMutationType(2, 0.5, "s", "return -1 *rlnorm(1, 9.678571428571428e-07 + log(Q), 3.36);");
+   initializeMutationType(3, 0.5, "f", Q * 7.1249999999999995e-06);
+   initializeGenomicElementType(1, c(1, 2, 3), c(1-(0.7086428571428571 + 0.005642857142857144), 0.7086428571428571, 0.005642857142857144));
+   initializeGenomicElement(1, c(0), c(L));
+   initializeMutationRate(Q*c(3.9214285714285705e-09), c(
+        L));
+		
+}
+
+// modify mutation callback to count all mutations
+function (logical)mut_callback(object mutation) {
+	mut_id = mutation.mutationType.id;
+	mut_count_mat[0, mut_id -1] = mut_count_mat[0, mut_id-1] + 1; 
+	return T;
+}
+
+1 early() {
+	// create a subpopulation
+	sim.addSubpop("p1", pop_size);
+	// create the storage directory
+	createDirectory(store_dir);
+	G_start = burn_in_time;
+	G_end = run_time;
+	defineGlobal('G_start', G_start);
+	defineGlobal('G_end', G_end);
+	community.registerLateEvent(NULL, '{end();}', G_end, G_end);
+	community.registerEarlyEvent(NULL, '{create_metrics();}', G_start, G_start);
+	community.registerEarlyEvent(NULL, '{print_gen();}', 2, G_end);
+	sim.registerMutationCallback(NULL, '{return mut_callback(mut);}', NULL, NULL, G_start, G_end);
+	defineGlobal('start_clock', clock('mono'));
+}
+
+function (void)create_metrics(void){
+
+	// keep track of mutation counts for each mutation type
+	headers = c();
+	for (mut_type in sim.mutationTypes){
+		headers = c(headers, "m" + asString(mut_type.id));
+	}
+	headers = paste(headers, sep=",");
+	writeFile(store_dir + "/fixation_prob_" + asString(job_no) + ".csv", headers, append=F);
+	// create the headers for the fixation time file	
+	to_write = ("mutation_id" + "," + "origin_gen" + "," + "fix_gen");
+	writeFile(store_dir + "/fixation_" + asString(job_no) + ".csv", to_write, append=F);	
+	
+
+}
+
+function (void)end(void){
+
+	for (mut in sim.substitutions){
+		print('here');
+		if (mut.originTick > burn_in_time){
+			print('here');
+			col = mut.mutationType.id - 1;
+			fix_count_mat[0, col] = fix_count_mat[0, col] + 1;
+			to_write = ("m" + mut.mutationType.id + "," + mut.originTick + "," +  mut.fixationTick);
+			writeFile(store_dir + "/fixation_" + asString(job_no) + ".csv", to_write, append=T);
+		}
+	}	
+	
+	mut_counts = drop(mut_count_mat[0, 0:(num_muts-1)]);
+	fix_prob = fix_count_mat[0, 0:(num_muts-1)]/mut_count_mat[0, 0:(num_muts-1)];
+	fix_prob = drop(fix_prob);
+	to_write = paste(fix_prob, sep=",");
+	writeFile(store_dir + "/fixation_prob_" + asString(job_no) + ".csv", to_write, append=T);
+	p1.outputVCFSample(100, filePath = store_dir + "/sample_" + asString(job_no) + ".vcf");
+	
+	sim.simulationFinished();
+}
+
+function (void)print_gen(void){
+	if (sim.cycle % 10 == 0){
+		pos = asInteger((sim.cycle/G_end)*20);
+		prog_bar = paste0('[', rep('█', pos), rep('-', 20-pos), "]");
+		print(prog_bar);
+		print(paste0('Generation ', sim.cycle, ' / ', G_end));
+		elapsed_time = asInteger(clock('mono') - start_clock);
+		print(paste0('Elapsed Time:', formatTime(elapsed_time)));
+		eta = (G_end - sim.cycle) * (elapsed_time / sim.cycle); 
+		print(paste0('ETA:', formatTime(eta)));
+		
+	}
+
+}
+
+function (string)formatTime(numeric$ elapsed_seconds){
+
+	total_mins = asInteger(elapsed_seconds / 60);
+	secs = format("%.2i", asInteger(elapsed_seconds % 60));
+	hours = format("%.2i", asInteger(total_mins / 60));
+	mins = format("%.2i", asInteger(total_mins % 60));
+	return(paste0(hours, ':', mins, ':', secs));
+	
+} 

@@ -1,0 +1,157 @@
+initialize() {
+
+	//command-line constants:
+	//base_pop_size
+	//scaling_factor
+	//log_dir
+	//job_no 
+	defineConstant('base_pop_size', 10000);
+	//defineConstant('log_dir', '~/Desktop/eff_test/');
+        //defineConstant('job_no', 1);
+	//defineConstant('Q', 20);
+	defineConstant('scaling_factor', Q);
+	// mutation types
+	initializeMutationType("m1", 0.5, "f", 0);
+	initializeMutationType("m2", 0.5, "g", -0.0294*scaling_factor, 0.184);
+	
+	// some useful mutation constants
+	
+	// the number of mutations in the sim	
+	defineConstant("num_muts", 2);
+	
+	// how many mutations to sample for frequency tracking
+	defineConstant('n_mut_sample', 10);	
+	
+	// define base constants
+	defineConstant("base_mut_rate", 3e-5);
+	defineConstant("base_recomb_rate", 3e-5);
+	
+	// initialize scaled parameters	
+	initializeMutationRate(base_mut_rate * scaling_factor);
+	initializeRecombinationRate(base_recomb_rate * scaling_factor);
+	defineConstant("pop_size", asInteger(base_pop_size * (1/scaling_factor)));
+	defineConstant("burn_in_time", 10*pop_size);
+	defineConstant("run_time", 4*pop_size+burn_in_time);
+
+	// define storage directory
+	defineConstant("store_dir", log_dir + "Q" + scaling_factor);
+
+	// create matrices to store mutation and fixation counts
+	defineConstant("mut_count_mat", matrix(rep(0,num_muts), nrow=1));
+	defineConstant("fix_count_mat", matrix(rep(0,num_muts), nrow=1));
+	
+
+	// g1 genomic element type: uses all mutations
+	//initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElementType("g1", c(m1, m2), c(0.95, 0.05));
+	// uniform chromosome of length 10 kb with uniform recombination
+	initializeGenomicElement(g1, 0, 9999);
+	
+	
+}
+
+1 early() {
+	// create a subpopulation
+	sim.addSubpop("p1", pop_size);
+	// create the storage directory
+	createDirectory(store_dir);
+}
+
+early() {
+	if (sim.cycle == burn_in_time){
+		// create the log file 
+		log = community.createLogFile(store_dir + "/" + "metrics_" + asString(job_no) + ".csv", logInterval=10);
+		log.addCycle();
+		// keep track of mean fitness
+		log.addCustomColumn("mean_fitness", "mean(p1.cachedFitness(NULL));");
+		// keep track of mutation counts for each mutation type
+		headers = c();
+		for (mut_type in sim.mutationTypes){
+			log.addCustomColumn("m" + asString(mut_type.id) + "_count", 
+			"sum(p1.genomes.countOfMutationsOfType(m" + asString(mut_type.id) + "));");
+			headers = c(headers, "m" + asString(mut_type.id));
+		}
+		headers = paste(headers, sep=",");
+		writeFile(store_dir + "/fixation_prob_" + asString(job_no) + ".csv", headers, append=F);
+		// create the headers for the fixation time file	
+		to_write = ("mutation_id" + "," + "origin_gen" + "," + "fix_gen");
+		writeFile(store_dir + "/fixation_" + asString(job_no) + ".csv", to_write, append=F);	
+		
+		// choose a bunch of random mutations for frequency tracking
+		mut_sample = sample(sim.mutations, n_mut_sample);
+		mut_sample_id = mut_sample.mutationType.id;
+		mut_sample_id = sapply(mut_sample_id, "{return('m' + applyValue);}");
+																									
+		frequencies = sim.mutationFrequencies(p1, mut_sample);
+		del_idx = which(frequencies == 0 | frequencies == 1);
+		defineGlobal('del_idx', del_idx);
+
+		
+		defineGlobal('mut_sample', mut_sample);
+		// create a matrix to store mutation frequencies
+		defineGlobal('mut_frequency_mat', frequencies);
+		defineGlobal('mut_sample_id', mut_sample_id);
+	}
+
+}
+
+late() {
+	if (sim.cycle > burn_in_time){
+	
+		
+		new_muts = sample(sim.mutations, length(del_idx));
+		mut_sample[del_idx] = new_muts;
+		defineGlobal('mut_sample', mut_sample);
+		frequencies = sim.mutationFrequencies(p1, mut_sample);
+		sample_ids = mut_sample.mutationType.id;
+		sample_ids = sapply(sample_ids, "{return('m' + applyValue);}");
+		mut_frequency_mat = rbind(mut_frequency_mat, frequencies);
+		mut_sample_id = rbind(mut_sample_id, sample_ids);
+		defineGlobal('mut_frequency_mat', mut_frequency_mat);
+		defineGlobal('mut_sample_id', mut_sample_id);
+		del_idx = which(frequencies == 0 | frequencies == 1);
+		defineGlobal('del_idx', del_idx);
+		
+	}
+}
+
+// modify mutation callback to count all mutations
+mutation() {
+	if (sim.cycle > burn_in_time){
+		mut_id = mut.mutationType.id;
+		mut_count_mat[0, mut_id -1] = mut_count_mat[0, mut_id-1] + 1; 
+	}	
+	return(mut);
+}
+
+1:1000000 late() { 
+
+	if (sim.cycle == run_time){ 
+		sim.simulationFinished();
+		for (mut in sim.substitutions){
+			if (mut.originTick > burn_in_time){
+				col = mut.mutationType.id - 1;
+				fix_count_mat[0, col] = fix_count_mat[0, col] + 1;
+				to_write = ("m" + mut.mutationType.id + "," + mut.originTick + "," +  mut.fixationTick);
+				writeFile(store_dir + "/fixation_" + asString(job_no) + ".csv", to_write, append=T);
+			}
+		}	
+		// store the loss time matrix into a file
+		for (i in c(0:(run_time-burn_in_time-1))){
+			to_write = drop(mut_frequency_mat[i, 0:(ncol(mut_frequency_mat)-1)]);
+			to_write = paste(to_write, sep=",");
+			writeFile(store_dir + "/freq_" + asString(job_no) + ".csv", to_write, append=T);
+		}
+		for (i in c(0:(run_time-burn_in_time-1))){
+			to_write = drop(mut_sample_id[i, 0:(ncol(mut_sample_id)-1)]);
+			to_write = paste(to_write, sep=",");
+			writeFile(store_dir + "/freq_" + asString(job_no) + ".csv", to_write, append=T);
+		}
+		mut_counts = drop(mut_count_mat[0, 0:1]);
+		fix_prob = fix_count_mat[0, 0:(num_muts-1)]/mut_count_mat[0, 0:(num_muts-1)];
+		fix_prob = drop(fix_prob);
+		to_write = paste(fix_prob, sep=",");
+		writeFile(store_dir + "/fixation_prob_" + asString(job_no) + ".csv", to_write, append=T);
+		p1.outputVCFSample(100, filePath = store_dir + "/sample_" + asString(job_no) + ".vcf");
+	}
+}
