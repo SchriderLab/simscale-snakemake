@@ -40,7 +40,7 @@ data['scaled'] = (data['Q'] == lowest_Q).astype(int)
 feature_filters = {
     'Fixation Times': r'm\d_fixation',
     'Site Frequency Spectrum': r'm\d_sfs',
-    'Fixation Probabilities': r'fixation_prob_\d+',
+    'Fraction of Mutations Fixed': r'fixation_prob_\d+',
     'LD': r'ld_\d+',
 }
 
@@ -72,7 +72,7 @@ for i, (feature_type, feature_filter) in enumerate(feature_filters.items()):
         y = data['scaled'][(data['Q'] == Q) | (data['Q'] == lowest_Q)]
         # shuffle and split training and test sets
         x, y = shuffle(x, y)
-        X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
+        X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 
         # train model
         clf.fit(X_train, y_train)
