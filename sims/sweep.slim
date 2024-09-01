@@ -1,49 +1,44 @@
 
 initialize() {
-	defineConstant('base_pop_size', 100000);
+	
 	//defineConstant('log_dir', 'Directory where simulation outcomes are stored');
 	//defineConstant('job_no', 'Replicate');
 	//defineConstant('Q', 'Scaling Factor');
-
+	
 	// define base constant
-	//defineConstant("base_mut_rate", 3e-5);
-	//defineConstant("base_recomb_rate", 3e-5);
-	defineConstant('base_mut_rate', 0);
-	defineConstant('base_recomb_rate', 0);
+	defineConstant("BASE_POP_SIZE", 100000);
+	defineConstant("BASE_MUT_RATE", 1.2e-8);
+	defineConstant("BASE_RECOMB_RATE", 1.2e-8);
 	
 	// define scaled constants
-	defineConstant('pop_size', asInteger(base_pop_size/Q));
-	defineConstant('burn_in', asInteger(pop_size*10));
-	defineConstant('run_time', asInteger(burn_in*10));
-	
-	// frequency tracking variable
-	defineGlobal('mut_freq', c());
+	defineConstant('POP_SIZE', asInteger(BASE_POP_SIZE/Q));
+	defineConstant('BURN_IN_TIME', asInteger(POP_SIZE*10));
+	defineConstant('RUN_TIME', asInteger(BURN_IN_TIME*10));
 	
 	// define storage directory
-	defineConstant("store_dir", log_dir + "Q" + Q);
+	defineConstant("STORE_DIR", log_dir + "Q" + Q);
 	
-	defineConstant('chr_len', 10000);
-	initializeMutationRate(base_mut_rate * Q);
+	defineConstant('L', 25000000);
+	initializeMutationRate(BASE_MUT_RATE * Q);
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeMutationType("m2", 1.0, "f", 0.05 * Q);  // introduced mutation
 	initializeGenomicElementType("g1", m1, 1.0);
-	initializeGenomicElement(g1, 0, chr_len-1);
-	initializeRecombinationRate(base_recomb_rate * Q);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeRecombinationRate(BASE_RECOMB_RATE * Q);
 }
 
 1 early() {
 	// save this run's identifier, used to save and restore
 	defineConstant("simID", getSeed());
 	
-	createDirectory(store_dir);
+	createDirectory(STORE_DIR);
 	
-	sim.addSubpop("p1", pop_size);
-	community.registerLateEvent(NULL, '{introduce_mutation();}', burn_in, burn_in);
-	community.registerLateEvent(NULL, '{check_fixation();}', burn_in, burn_in + run_time);
-	community.registerLateEvent(NULL, '{end_with_exception();}', burn_in + run_time+1, burn_in+run_time+1);
+	sim.addSubpop("p1", POP_SIZE);
+	community.registerLateEvent(NULL, '{introduce_mutation();}', BURN_IN_TIME, BURN_IN_TIME);
+	community.registerLateEvent(NULL, '{check_fixation();}', BURN_IN_TIME, BURN_IN_TIME + RUN_TIME);
+	community.registerLateEvent(NULL, '{end_with_exception();}', BURN_IN_TIME + RUN_TIME+1, BURN_IN_TIME+RUN_TIME+1);
 	
-	writeFile(store_dir + "/freq_" + asString(job_no) + ".csv", 'm2', append=F);
-	writeFile(store_dir + "/fixation_" + asString(job_no) + ".csv", 'm2', append=F);
+	writeFile(STORE_DIR + "/fixation_" + asString(job_no) + ".csv", 'm2', append=F);
 }
 
 
@@ -53,27 +48,20 @@ function (void)introduce_mutation(void) {
 	
 	// introduce the sweep mutation
 	target = sample(p1.genomes, 1);
-	target.addNewDrawnMutation(m2, asInteger(chr_len/2));
+	target.addNewDrawnMutation(m2, asInteger(L/2));
 
 }
 
 
 function (void)check_fixation(void){
-	counts = p1.genomes.countOfMutationsOfType(m2);
-	freq = mean(counts > 0);
-	defineGlobal('mut_freq', c(mut_freq, freq));
 	if (sim.countOfMutationsOfType(m2) == 0)
 	{
 		fixed = (sum(sim.substitutions.mutationType == m2) == 1);
 		
 		if (fixed)
 		{
-			mut_freq[length(mut_freq)-1] = 1;
-			for (freq in mut_freq){
-				writeFile(store_dir + "/freq_" + asString(job_no) + ".csv", asString(freq), append=T);
-			}
-			writeFile(store_dir + '/fixation_' + asString(job_no) + '.csv', asString(sim.cycle - burn_in), append=T);
-			p1.outputVCFSample(100, filePath = store_dir + "/sample_" + asString(job_no) + ".vcf");
+			writeFile(STORE_DIR + '/fixation_' + asString(job_no) + '.csv', asString(sim.cycle - BURN_IN_TIME), append=T);
+			p1.outputVCFSample(100, filePath = STORE_DIR + "/sample_" + asString(job_no) + ".vcf");
 			sim.simulationFinished();
 		}
 		else
@@ -87,17 +75,15 @@ function (void)check_fixation(void){
 function (void)restart_sim(void){
 	cat(simID + ": LOST - RESTARTING\n");
 	
-	defineGlobal('mut_freq', c());	
-	
-	// go back to tick 1000
+	// go back to after the burn-in
 	sim.readFromPopulationFile(tempdir() + "slim_" + simID + ".txt");
-			
+	
 	// start a newly seeded run
 	setSeed(rdunif(1, 0, asInteger(2^62) - 1));
-			
+	
 	// re-introduce the sweep mutation
 	target = sample(p1.genomes, 1);
-	target.addNewDrawnMutation(m2, asInteger(chr_len/2));
+	target.addNewDrawnMutation(m2, asInteger(L/2));
 }
 
 function (void)end_with_exception(void){

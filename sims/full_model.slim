@@ -1,126 +1,117 @@
 initialize() {
-
-	//command-line constants:
-
-	defineConstant('base_pop_size', 10000);
 	
+	//command-line constants:
 	//defineConstant('Q', 'Scaling factor);
-	//defineConstant('log_dir', 'Directory where simulation outcomes will be stores');
+	//defineConstant('log_dir', 'Directory where simulation outcomes will be stored');
 	//defineConstant('job_no', 'Replicate number');
-
 	
 	// mutation types
 	initializeMutationType("m1", 0.5, "f", 0);
 	initializeMutationType("m2", 0.5, "f", 0.05*Q);
 	initializeMutationType("m3", 0.5, "g", -0.0294*Q, 0.184);
-	defineConstant("num_muts", 3);
+	defineConstant("NUM_MUTS", 3);
+	
 	// define base constants
-	defineConstant("base_mut_rate", 3e-5);
-	defineConstant("base_recomb_rate", 3e-5);
+	defineConstant("BASE_POP_SIZE", 10000);
+	defineConstant("BASE_MUT_RATE", 1.2e-8);
+	defineConstant("BASE_RECOMB_RATE", 1.2e-8);
 	
 	// initialize scaled parameters	
-	initializeMutationRate(base_mut_rate * Q);
-	initializeRecombinationRate(base_recomb_rate * Q);
-	defineConstant("pop_size", asInteger(base_pop_size/Q));
-	defineConstant("burn_in_time", 10*pop_size);
-	defineConstant("run_time", 4*pop_size+burn_in_time);
-
+	initializeMutationRate(BASE_MUT_RATE * Q);
+	initializeRecombinationRate(BASE_RECOMB_RATE * Q);
+	defineConstant("POP_SIZE", asInteger(BASE_POP_SIZE/Q));
+	defineConstant("BURN_IN_TIME", 10*POP_SIZE);
+	defineConstant("RUN_TIME", 4*POP_SIZE+BURN_IN_TIME);
+	
 	// define storage directory
-	defineConstant("store_dir", log_dir + "Q" + Q);
+	defineConstant("STORE_DIR", log_dir + "/Q" + Q);
 	
 	// create matrices to store mutation and fixation counts
-	defineConstant("mut_count_mat", matrix(rep(0,num_muts), nrow=1));
-	defineConstant("fix_count_mat", matrix(rep(0,num_muts), nrow=1));
-
+	defineGlobal("MUT_COUNT_VEC", rep(0, NUM_MUTS));
+	defineGlobal("FIX_COUNT_VEC", rep(0, NUM_MUTS));
+	
 	// g1 genomic element type: uses all mutations
 	initializeGenomicElementType("g1", c(m1,m2, m3), c(0.25, 0.75*0.05, 0.75*(1-0.05)));
-	// uniform chromosome of length 10 kb with uniform recombination
-	initializeGenomicElement(g1, 0, 9999);
+	// uniform chromosome of length 25 mb with uniform recombination
+	initializeGenomicElement(g1, 0, 25000000-1);
 }
 
 // modify mutation callback to count all mutations
-function (logical)mut_callback(object mutation) {
+function (logical$)mut_callback(object $mutation) {
 	mut_id = mutation.mutationType.id;
-	mut_count_mat[0, mut_id -1] = mut_count_mat[0, mut_id-1] + 1; 
+	MUT_COUNT_VEC[mut_id -1] = MUT_COUNT_VEC[mut_id-1] + 1;
 	return T;
 }
 
 1 early() {
 	// create a subpopulation
-	sim.addSubpop("p1", pop_size);
+	sim.addSubpop("p1", POP_SIZE);
 	// create the storage directory
-	createDirectory(store_dir);
-	G_start = burn_in_time;
-	G_end = run_time;
-	defineGlobal('G_start', G_start);
-	defineGlobal('G_end', G_end);
-	community.registerLateEvent(NULL, '{end();}', G_end, G_end);
-	community.registerEarlyEvent(NULL, '{create_metrics();}', G_start, G_start);
-	community.registerEarlyEvent(NULL, '{print_gen();}', 2, G_end);
-	sim.registerMutationCallback(NULL, '{return mut_callback(mut);}', NULL, NULL, G_start, G_end);
+	createDirectory(STORE_DIR);
+	/* 
+		In SLiM >= 4.2, dynamic scheduling of events as is done with the registerLateEvent() and
+		registerEarlyEvent() here can be simplified by using global constants in the tick schedule 
+	*/
+	community.registerLateEvent(NULL, '{end();}', RUN_TIME, RUN_TIME);
+	community.registerEarlyEvent(NULL, '{create_metrics();}', BURN_IN_TIME, BURN_IN_TIME);
+	community.registerEarlyEvent(NULL, '{print_gen();}', 2, RUN_TIME);
+	sim.registerMutationCallback(NULL, '{return mut_callback(mut);}', NULL, NULL, BURN_IN_TIME, RUN_TIME);
 	defineGlobal('start_clock', clock('mono'));
 }
 
 function (void)create_metrics(void){
-
-	// keep track of mutation counts for each mutation type
-	headers = c();
-	for (mut_type in sim.mutationTypes){
-		headers = c(headers, "m" + asString(mut_type.id));
-	}
-	headers = paste(headers, sep=",");
-	writeFile(store_dir + "/fixation_prob_" + asString(job_no) + ".csv", headers, append=F);
+	
+	// kcreate the headers for the fractions of mutations fixed file
+	headers = paste('m' + sim.mutationTypes.id, sep=",");
+	writeFile(STORE_DIR + "/fixation_prob_" + asString(job_no) + ".csv", headers, append=F);
 	// create the headers for the fixation time file	
 	to_write = ("mutation_id" + "," + "origin_gen" + "," + "fix_gen");
-	writeFile(store_dir + "/fixation_" + asString(job_no) + ".csv", to_write, append=F);	
-	
+	writeFile(STORE_DIR + "/fixation_" + asString(job_no) + ".csv", to_write, append=F);
+
 
 }
 
 function (void)end(void){
-
-	for (mut in sim.substitutions){
-		if (mut.originTick > burn_in_time){
-			print('here');
-			col = mut.mutationType.id - 1;
-			fix_count_mat[0, col] = fix_count_mat[0, col] + 1;
-			to_write = ("m" + mut.mutationType.id + "," + mut.originTick + "," +  mut.fixationTick);
-			writeFile(store_dir + "/fixation_" + asString(job_no) + ".csv", to_write, append=T);
-		}
-	}	
 	
-	mut_counts = drop(mut_count_mat[0, 0:(num_muts-1)]);
-	fix_prob = fix_count_mat[0, 0:(num_muts-1)]/mut_count_mat[0, 0:(num_muts-1)];
-	fix_prob = drop(fix_prob);
+	for (mut in sim.substitutions){
+		if (mut.originTick > BURN_IN_TIME){
+			col = mut.mutationType.id - 1;
+			FIX_COUNT_VEC[col] = FIX_COUNT_VEC[col] + 1;
+			to_write = ("m" + mut.mutationType.id + "," + mut.originTick + "," +  mut.fixationTick);
+			writeFile(STORE_DIR + "/fixation_" + asString(job_no) + ".csv", to_write, append=T);
+		}
+	}
+	
+	fix_prob = FIX_COUNT_VEC/MUT_COUNT_VEC;
 	to_write = paste(fix_prob, sep=",");
-	writeFile(store_dir + "/fixation_prob_" + asString(job_no) + ".csv", to_write, append=T);
-	p1.outputVCFSample(100, filePath = store_dir + "/sample_" + asString(job_no) + ".vcf");
+	writeFile(STORE_DIR + "/fixation_prob_" + asString(job_no) + ".csv", to_write, append=T);
+	p1.outputVCFSample(100, filePath = STORE_DIR + "/sample_" + asString(job_no) + ".vcf");
 	
 	sim.simulationFinished();
 }
 
 function (void)print_gen(void){
 	if (sim.cycle % 10 == 0){
-		pos = asInteger((sim.cycle/G_end)*20);
+		pos = asInteger((sim.cycle/RUN_TIME)*20);
 		prog_bar = paste0('[', rep('█', pos), rep('-', 20-pos), "]");
 		print(prog_bar);
-		print(paste0('Generation ', sim.cycle, ' / ', G_end));
+		print(paste0('Generation ', sim.cycle, ' / ', RUN_TIME));
 		elapsed_time = asInteger(clock('mono') - start_clock);
 		print(paste0('Elapsed Time:', formatTime(elapsed_time)));
-		eta = (G_end - sim.cycle) * (elapsed_time / sim.cycle); 
+		eta = (RUN_TIME - sim.cycle) * (elapsed_time / sim.cycle);
 		print(paste0('ETA:', formatTime(eta)));
-		
+	
 	}
 
 }
 
-function (string)formatTime(numeric$ elapsed_seconds){
-
+function (string$)formatTime(numeric$ elapsed_seconds){
+	
 	total_mins = asInteger(elapsed_seconds / 60);
 	secs = format("%.2i", asInteger(elapsed_seconds % 60));
 	hours = format("%.2i", asInteger(total_mins / 60));
 	mins = format("%.2i", asInteger(total_mins % 60));
 	return(paste0(hours, ':', mins, ':', secs));
-	
-} 
+
+}
 

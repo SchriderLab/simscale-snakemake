@@ -7,20 +7,23 @@ initialize() {
 	
 	// mutation types
 	initializeMutationType("m1", 0.5, "f", 0);
-	initializeMutationType("m2", 0.5, "g", -0.0294*Q, 0.184);
-	defineConstant("NUM_MUTS", 2);
+	initializeMutationType("m2", 0.5, "f", 0.05*Q);
+	initializeMutationType("m3", 0.5, "g", -0.0294*Q, 0.184);
+	defineConstant("NUM_MUTS", 3);
 	
 	// define base constants
-	defineConstant("BASE_POP_SIZE", 10000);	
+	defineConstant("BASE_POP_SIZE", 10000);
 	defineConstant("BASE_MUT_RATE", 1.2e-8);
 	defineConstant("BASE_RECOMB_RATE", 1.2e-8);
+	defineConstant("BASE_EXPANDED_POP_SIZE", 20000);
 	
 	// initialize scaled parameters	
 	initializeMutationRate(BASE_MUT_RATE * Q);
 	initializeRecombinationRate(BASE_RECOMB_RATE * Q);
 	defineConstant("POP_SIZE", asInteger(BASE_POP_SIZE/Q));
+	defineConstant("EXPANDED_POP_SIZE", asInteger(BASE_EXPANDED_POP_SIZE/Q));
 	defineConstant("BURN_IN_TIME", 10*POP_SIZE);
-	defineConstant("RUN_TIME", 4*POP_SIZE+BURN_IN_TIME);
+	defineConstant("RUN_TIME", BURN_IN_TIME+EXPANDED_POP_SIZE);
 	
 	// define storage directory
 	defineConstant("STORE_DIR", log_dir + "/Q" + Q);
@@ -30,7 +33,7 @@ initialize() {
 	defineGlobal("FIX_COUNT_VEC", rep(0, NUM_MUTS));
 	
 	// g1 genomic element type: uses all mutations
-	initializeGenomicElementType("g1", c(m1,m2), c(0.25, 0.75));
+	initializeGenomicElementType("g1", c(m1,m2, m3), c(0.25, 0.75*0.05, 0.75*(1-0.05)));
 	// uniform chromosome of length 25 mb with uniform recombination
 	initializeGenomicElement(g1, 0, 25000000-1);
 }
@@ -51,6 +54,7 @@ function (logical$)mut_callback(object $mutation) {
 		In SLiM >= 4.2, dynamic scheduling of events as is done with the registerLateEvent() and
 		registerEarlyEvent() here can be simplified by using global constants in the tick schedule 
 	*/
+	community.registerLateEvent(NULL, "{p1.setSubpopulationSize(+EXPANDED_POP_SIZE);}", BURN_IN_TIME, BURN_IN_TIME);
 	community.registerLateEvent(NULL, '{end();}', RUN_TIME, RUN_TIME);
 	community.registerEarlyEvent(NULL, '{create_metrics();}', BURN_IN_TIME, BURN_IN_TIME);
 	community.registerEarlyEvent(NULL, '{print_gen();}', 2, RUN_TIME);
@@ -113,4 +117,3 @@ function (string$)formatTime(numeric$ elapsed_seconds){
 	return(paste0(hours, ':', mins, ':', secs));
 
 }
-
