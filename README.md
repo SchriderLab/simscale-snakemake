@@ -7,7 +7,7 @@ Two main things are needed to run this pipeline: `snakemake` and `conda`. Please
 # Simulation outcome files
 In order to use this pipeline, simulation outcomes must be stored such as that each scaling factor has its own directory named `Q[scaling factor]`. Inside each directory there should be three main categories of files: 
 1. CSV files storing the mutation type, origin generation, and fixation generation for each mutation fixed after any burn-in. The headers for these files must be `mutation_id, origin_gen, fix_gen` and each file should be named `fixation_[replicate].csv`.
-2. CSV files storing the mutation fixation probabilities for each mutation types. The headers for these files are just the mutation SLiM mutation type ids (e.g. `m1, m2, m3`). Each file should be named `fixation_prob_[replicate].csv`.
+2. CSV files storing the fraction of mutations fixed for each mutation types. The headers for these files are just the mutation SLiM mutation type ids (e.g. `m1, m2, m3`). Each file should be named `fixation_prob_[replicate].csv`.
 3. Samples of the population in vcf after the end of the simulation, each named `sample_[replicate].vcf`.
 
 One thing to note here is that the replicate numbers should match up for each scaling factor. For instance `fixation_1.csv`, `fixation_prob_1.csv`, and `sample_1.csv` must correspond to the same simulation replicate.
@@ -45,7 +45,7 @@ An example of directory structure for simulation results that includes scaling f
         └── sample_2.vcf
 ```
 
-We have included the simulations used in the paper "Population size rescaling significantly biases outcomes of forward-in-time population genetic simulations" in the `sims` directory. These files contain the eidos code used to output the simulation outcomes as specified.
+We have included the simulations used in the paper "Population size rescaling significantly biases outcomes of forward-in-time population genetic simulations" in the `sims` directory. These files contain the eidos code used to output the simulation outcomes as specified. We have also included in that directory the `python` code used to generate the *Drosohpila* `SLiM` simulation files under the name `std_pop_sim_dro.py`. 
 
 # Configuration file
 This file is located in `config/config.yml` and is required. The following variables must be specified:
@@ -69,11 +69,11 @@ Other variables in this file are optional:
 `sample_sizes`: Allows users to specify the sample sizes for subsampling of replicates when calculating mean percent error, KL divergence, and average root mean squared error (for LD). Note that the pipeline will always calculate these with all replicates, but users may wish to see the impact of using a smaller sample size. The resulting plots and summary tables will have a suffix denoting the sample size (e.g. `fixation_100.svg`), with a suffix of `0` denoting the use of all replicates.
 
 # Profile 
-`snakemake` allows the specification of profiles using the `--profile` option. Each profile is located in the `profile` directory, and must contain a `config.yaml` file. This allows the specification of default command-line arguments and a cluster job submission environment. It also allows the specification of job resources for a rule. We have included an example profile for the `SLURM` utility which also specified default resources and resources for two rules. Please refer to the `snakemake` [profiles documentation](https://snakemake.readthedocs.io/en/stable/executing/cli.html#profiles) for more information.
+`snakemake` allows the specification of profiles using the `--profile` option. Each profile is located in the `profile` directory, and must contain a `config.yml` file. This allows the specification of default command-line arguments and a cluster job submission environment. It also allows the specification of job resources for a rule. We have included an example profile for the `SLURM` utility which also specified default resources and resources for two rules. Please refer to the `snakemake` [profiles documentation](https://snakemake.readthedocs.io/en/stable/executing/cli.html#profiles) for more information.
 
 # Running the pipeline
 
-Once all the necessary variables in the `config.yaml` file are specified, the pipeline can be run using the `snakemake` command. Please note that when not using a profile, `snakemake` requires specification for the number of cores to be used. For example, this runs the pipeline using 1 core:
+Once all the necessary variables in the `config.yml` file are specified, the pipeline can be run using the `snakemake` command. Please note that when not using a profile, `snakemake` requires specification for the number of cores to be used. For example, this runs the pipeline using 1 core:
 
 ```sh
 snakemake --cores 1
@@ -87,6 +87,6 @@ snakemake --profile profile/slurm
 
 # Pipeline results
 Once the pipeline is done, it should produce a `full_data.csv` file in the specified `output_dir`. In side the `output_dir` there should be two directores:
-- `graphs`: contains all the graphs including graphs of the outcomes, graphs of classifier accuracy, graphs of the mean percent errors, and graphs of KL divergence and root mean squared error (for linkage disequilibrium).
+- `graphs`: contains all the graphs including graphs of the outcomes, graphs of classifier accuracy, graphs of the mean percent errors, and graphs of KL divergence and root mean squared error (for linkage disequilibrium). 
 
 - `summary_stats`: contains tables for the average values of the outcomes at each scaling factor, classifier accuracy, and values for mean percent errors, KL divergence, and linkage disequilibrium root mean squared error.
