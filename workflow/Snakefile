@@ -36,6 +36,7 @@ if 'fixation' in config:
     if 'muts' in fixation:
         muts['fixation'] = fixation['muts']
 
+
 if 'sfs' in config:
     sfs = config['sfs']
     if 'xlim' in sfs:
@@ -70,6 +71,8 @@ def get_sim_output_files(Q):
 def get_qs():
     # Find all directories in the src_data_dir
     directories = os.listdir(src_data_dir)
+    # Make sure the directories are of the form Q[q_value] with no letters after [q_value]
+    directories = [dir for dir in directories if dir[0] == 'Q' and dir[1:].isdigit()]
     # The directories are names Q[q_value] so we need to extract the q_value
     qs = [int(dir[1:]) for dir in directories]
     # sort the qs for reproducibility
@@ -132,8 +135,9 @@ def get_fixation_binwidth():
         bin_widths.append(bin_width)
     return bin_widths
 
+
 onstart:
-    shell("mkdir -p {output_dir}/graphs/sampling {output_dir}/summary_stats/sampling")
+    shell("mkdir -p {output_dir}/graphs {output_dir}/summary_stats")
 
 onsuccess:
     shell("rm -rf {output_dir}/batch_tmp_fulldata")
@@ -166,8 +170,8 @@ rule graph_outcomes:
         "graphs"
     params:
         muts = muts.get('{outcome}', get_sim_muts()),
-        mut_labels = [mutation_names[mut] for mut in muts.get('{outcome}', get_sim_muts())],
-        xlim = xlim.get('{outcome}', 0)
+        mut_labels = lambda wildcards: [mutation_names[mut] for mut in muts.get(wildcards.outcome, get_sim_muts())],
+        xlim = lambda wildcards: xlim.get(wildcards.outcome, 0)
     shell:
         ("""
         python scripts/create_summary_plots.py --input {input} --output {output_dir} --type {wildcards.outcome} --muts {params.muts} --mut_labels {params.mut_labels} --xlim {params.xlim}
