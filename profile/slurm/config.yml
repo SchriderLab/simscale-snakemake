@@ -16,17 +16,6 @@ printshellcmds: "True"
 keep-going: "False"
 rerun-incomplete: "True"
 
-set-resources:
-  create_fulldata_batches:
-    runtime: 120
-    mem_mb: 12000
-    ntasks: 1
-  create_fulldata:
-    runtime: 300
-    mem_mb: 50000
-default-resources:
-  runtime: 100
-  mem_mb: 6000
 # Example resource configuration
 # default-resources:
 #   - runtime=100

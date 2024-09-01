@@ -1,5 +1,21 @@
-src_data_dir: "/work/users/a/m/amjada/sim_rescaling/sim_results/test/1_1"
-output_dir: "/work/users/a/m/amjada/sim_rescaling/sim_results/test/results"
-chr_len: 1000
-batch_size: 100
-conda_env: "envs/simscale_sm.yml"
+src_data_dir: # source data directory
+output_dir: # output directory
+batch_size: 1000
+chr_len: # chromosome length
+conda_env: # conda environment
+fixation:
+  xlim: # x limit for fixation times plot
+  mutations: # which mutations to plot
+    #ex - m1
+sfs:
+  xlim: # x limit for sfs plot
+mutation_labels:
+  # mutation type: mutation label
+  # ex - m1: Neutral
+  # ex - m2: Deleterious
+
+sample_sizes:
+- 10
+- 100
+
+
