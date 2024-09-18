@@ -37,7 +37,7 @@ initialize() {
 }
 
 // modify mutation callback to count all mutations
-function (logical$)mut_callback(object $mutation) {
+function (logical$)mut_callback(object$ mutation) {
 	mut_id = mutation.mutationType.id;
 	MUT_COUNT_VEC[mut_id -1] = MUT_COUNT_VEC[mut_id-1] + 1;
 	return T;
